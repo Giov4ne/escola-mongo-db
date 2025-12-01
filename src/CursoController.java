@@ -1,18 +1,11 @@
 
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.Scanner;
-
+import com.mongodb.client.MongoCollection;
+import org.bson.Document;
+import java.util.LinkedHashSet;
 
 public class CursoController {
-    public void cadastrarCurso(Connection conexao) throws SQLException {
+    public void cadastrarCurso(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
         System.out.println("Insira os seguintes dados para cadastrar um novo curso: ");
         
@@ -25,47 +18,33 @@ public class CursoController {
         System.out.print("Turno: ");
         String turno = input.nextLine();
         
+        int novoId = getProximoIdCurso(conexao);
         
-        Curso novoCurso = new Curso(getProximoIdCurso(conexao), nome, tipo, turno);
+        Curso novoCurso = new Curso(novoId, nome, tipo, turno);
         
         CursoModel.create(novoCurso, conexao);
         System.out.println("Curso criado com sucesso!!");
     }
     
-    public int getProximoIdCurso(Connection conn) throws SQLException {
-        String sql = "SELECT MAX(id_curso) FROM cursos";
-        
-        int maxId = 0;
-
-        try (PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet rs = pstmt.executeQuery()) {
-
-            if (rs.next()) {
-                maxId = rs.getInt(1);
-            }
-        }
-        
-        return maxId + 1;
+    public int getProximoIdCurso(ConexaoMongoDB conn) {
+        MongoCollection collection = conn.getDatabase().getCollection("cursos");
+        return (int) collection.countDocuments() + 1;
     }
 
-    public void listarCursos(Connection conexao) throws SQLException {
-        LinkedHashSet all = CursoModel.listAll(conexao);
-        Iterator<Curso> it = all.iterator();
-        while(it.hasNext()) {
-            System.out.println(it.next().toString());
-        }
-    }
-
-    public void removerCurso(Connection conexao) throws SQLException {
+    public void removerCurso(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
+        
         listarCursos(conexao);
+        
         System.out.println("Informe o id do curso a remover: ");
         int n = input.nextInt();
+        input.nextLine();
+
         CursoModel.remove(n, conexao);  
         System.out.println("Curso removido com sucesso!!");
     }
 
-    public void alterarCurso(Connection conexao) throws SQLException {
+    public void alterarCurso(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
         
         listarCursos(conexao);
@@ -83,71 +62,77 @@ public class CursoController {
         System.out.print("Turno: ");
         String turno = input.nextLine();
         
-        
         Curso curso = new Curso(id, nome, tipo, turno);
         
         CursoModel.update(curso, conexao);
         System.out.println("Curso atualizado com sucesso!!");
     }
     
-    public void listarDisciplinasExcetoDoCurso(int idCurso, Connection conexao) throws SQLException {
-        LinkedHashSet all = DisciplinaModel.listAllExceptFromCourse(idCurso, conexao);
-        Iterator<Disciplina> it = all.iterator();
-        while(it.hasNext()) {
-            System.out.println(it.next().toString());
-        }
-    }
-    
-    public void listarDisciplinasDoCurso(int idCurso, Connection conexao) throws SQLException {
-        LinkedHashSet all = DisciplinaModel.listAllFromCourse(idCurso, conexao);
-        Iterator<Disciplina> it = all.iterator();
-        while(it.hasNext()) {
-            System.out.println(it.next().toString());
-        }
-    }
-    
-    public void atribuirDisciplina(Connection conexao) throws SQLException {
+    public void adicionarDisciplinaAoCurso(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
         
         listarCursos(conexao);
+        System.out.print("Informe o ID do Curso para adicionar a disciplina: ");
+        int idCurso = Integer.parseInt(input.nextLine());
         
-        System.out.println("Informe o id do curso: ");
-        int idCurso = input.nextInt();
-        input.nextLine();
+        System.out.println("\n--- NOVA DISCIPLINA ---");
         
-        listarDisciplinasExcetoDoCurso(idCurso, conexao);
+        int idDisc = (int) (System.currentTimeMillis() % 10000); 
         
-        System.out.print("Informe o id da disciplina a atribuir: ");
-        int idDisciplina = input.nextInt();
-        input.nextLine();
+        System.out.print("Nome da Disciplina: ");
+        String nome = input.nextLine();
         
-        System.out.print("Informe a carga horaria da disciplina para este curso: ");
-        int carga = input.nextInt();
-        input.nextLine();
+        System.out.print("Ementa: ");
+        String ementa = input.nextLine();
         
-        System.out.print("Disciplina obrigatoria (1-Sim; 2-Nao): ");
-        int numObrigatoriedade = input.nextInt();
-        Boolean obrigatoriedade = numObrigatoriedade == 1;
-        input.nextLine();
+        System.out.print("Carga Horaria (numero): ");
+        int carga = Integer.parseInt(input.nextLine());
         
-        CursoDisciplinaModel.assign(idCurso, idDisciplina, carga, obrigatoriedade, conexao);
+        System.out.print("E obrigatorio? (s/n): ");
+        boolean obrigatorio = input.nextLine().equalsIgnoreCase("s");
+
+        Document docDisciplina = new Document("id_disc_sql", idDisc)
+                .append("nome", nome)
+                .append("ementa", ementa)
+                .append("carga_hr", carga)
+                .append("obrigatorio", obrigatorio);
+
+        CursoModel.adicionarDisciplina(idCurso, docDisciplina, conexao);
+        System.out.println("Disciplina adicionada a grade do curso com sucesso!");
     }
-    
-    public void desatribuirDisciplina(Connection conexao) throws SQLException {
+
+    public void removerDisciplinaDoCurso(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
-        
+
         listarCursos(conexao);
-        
-        System.out.println("Informe o id do curso: ");
-        int idCurso = input.nextInt();
-        input.nextLine();
-        
-        listarDisciplinasDoCurso(idCurso, conexao);
-        
-        System.out.print("Informe o id da disciplina a desatribuir: ");
-        int idDisciplina = input.nextInt();
-        input.nextLine();
-        
-        CursoDisciplinaModel.unassign(idCurso, idDisciplina, conexao);
+        System.out.print("Informe o ID do Curso: ");
+        int idCurso = Integer.parseInt(input.nextLine());
+
+        System.out.println("\n--- DISCIPLINAS DESTE CURSO ---");
+        LinkedHashSet<String> disciplinas = CursoModel.listarDisciplinasDoCurso(idCurso, conexao);
+
+        if (disciplinas.isEmpty()) {
+            System.out.println("Este curso nao possui disciplinas cadastradas.");
+            System.out.println("Cancelando operacao...");
+            return;
+        }
+
+        for (String d : disciplinas) {
+            System.out.println(d);
+        }
+
+        System.out.print("Informe o ID da Disciplina (o numero no inicio da linha) para remover: ");
+        int idDisc = Integer.parseInt(input.nextLine());
+
+        CursoModel.removerDisciplina(idCurso, idDisc, conexao);
+        System.out.println("Disciplina removida da grade com sucesso!");
+    }
+
+    public void listarCursos(ConexaoMongoDB conexao) {
+        System.out.println("\n--- LISTA DE CURSOS ---");
+        LinkedHashSet<String> cursos = CursoModel.listarNomesCursos(conexao);
+        for (String c : cursos) {
+            System.out.println(c);
+        }
     }
 }

@@ -2,20 +2,20 @@
 public class Turma {
     private int id;
     private Integer idProfessor;
-    private int idDisciplina;
+    private String disciplina;
     private String codigo;
     private String sala;
 
-    public Turma(int id, int idDisciplina, String codigo, String sala) {
+    public Turma(int id, String disciplina, String codigo, String sala) {
         this.id = id;
-        this.idDisciplina = idDisciplina;
+        this.disciplina = disciplina;
         this.codigo = codigo;
         this.sala = sala;
     }
 
-    public Turma(int id, int idDisciplina, String codigo, String sala, Integer idProfessor) {
+    public Turma(int id, String disciplina, String codigo, String sala, Integer idProfessor) {
         this.id = id;
-        this.idDisciplina = idDisciplina;
+        this.disciplina = disciplina;
         this.codigo = codigo;
         this.sala = sala;
         this.idProfessor = idProfessor;
@@ -37,12 +37,12 @@ public class Turma {
         this.idProfessor = idProfessor;
     }
 
-    public int getIdDisciplina() {
-        return idDisciplina;
+    public String getDisciplina() {
+        return disciplina;
     }
 
-    public void setIdDisciplina(int idDisciplina) {
-        this.idDisciplina = idDisciplina;
+    public void setIdDisciplina(String disciplina) {
+        this.disciplina = disciplina;
     }
 
     public String getCodigo() {
@@ -64,11 +64,9 @@ public class Turma {
     @Override
     public String toString() {
         return "id: " + id + 
-                ", idDisciplina: " + idDisciplina + 
+                ", disciplina: " + disciplina + 
                 ", codigo: " + codigo + 
                 ", sala: " + sala +
-                ", idProfessor: " + (idProfessor != null ? idProfessor : "Não informado");
+                ", idProfessor: " + (idProfessor != null ? idProfessor : "Nao informado");
     }
-    
-    
 }

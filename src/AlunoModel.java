@@ -1,120 +1,110 @@
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import com.mongodb.client.MongoCollection;
+import org.bson.Document;
 import java.util.LinkedHashSet;
-
+import org.bson.conversions.Bson;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
 
 public class AlunoModel {
-    public static void create(Aluno aluno, Connection conn) throws SQLException {
-        PreparedStatement st;
-            st = conn.prepareStatement("INSERT INTO alunos (id_aluno, nome, telefone, endereco, cpf, dt_nascimento) VALUES (?,?,?,?,?,?)");
-            st.setInt(1, aluno.getId());
-            st.setString(2, aluno.getNome());
-            st.setString(3, aluno.getTelefone());
-            st.setString(4, aluno.getEndereco());
-            st.setString(5, aluno.getCpf());
-            st.setDate(6, aluno.getDtNascimento());
-            st.execute();
-            st.close();  
+    public static void create(Aluno aluno, ConexaoMongoDB conn) {
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("alunos");
+
+        Document contato = new Document("telefone", aluno.getTelefone())
+                .append("endereco", aluno.getEndereco());
+
+        Document docAluno = new Document("id_sql", aluno.getId())
+                .append("nome", aluno.getNome())
+                .append("cpf", aluno.getCpf())
+                .append("dt_nascimento", aluno.getDtNascimento())
+                .append("contato", contato)
+                .append("responsavel", null)
+                .append("matricula", null); 
+
+        collection.insertOne(docAluno);
+        System.out.println("Aluno cadastrado no MongoDB com sucesso!");
     }
     
-    static LinkedHashSet listAll(Connection conn) throws SQLException {
-        Statement st;
-        LinkedHashSet list = new LinkedHashSet();
-            st = conn.createStatement();
-            String sql = "SELECT id_aluno, nome, telefone, endereco, cpf, dt_nascimento, id_responsavel FROM alunos ORDER BY id_aluno";
-            
-            ResultSet result = st.executeQuery(sql);
-            
-            while(result.next()) {
-                list.add(new Aluno(
-                        result.getInt(1),
-                        result.getString(2),
-                        result.getString(3),
-                        result.getString(4),
-                        result.getString(5),
-                        result.getDate(6),
-                        result.getInt(7)
-                ));
+    static LinkedHashSet<Aluno> listAll(ConexaoMongoDB conn) {
+        LinkedHashSet<Aluno> list = new LinkedHashSet<>();
+
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("alunos");
+
+        for (Document doc : collection.find()) {
+            Document contato = (Document) doc.get("contato");
+            String telefone = (contato != null) ? contato.getString("telefone") : "";
+            String endereco = (contato != null) ? contato.getString("endereco") : "";
+
+            Document responsavelDoc = (Document) doc.get("responsavel");
+            int idResponsavel = 0;
+            if (responsavelDoc != null) {
+                idResponsavel = responsavelDoc.getInteger("id_sql", 0); 
             }
+
+            java.util.Date dataMongo = doc.getDate("dt_nascimento");
+            java.sql.Date dataSql = null;
+            if (dataMongo != null) {
+                dataSql = new java.sql.Date(dataMongo.getTime());
+            }
+
+            list.add(new Aluno(
+                    doc.getInteger("id_sql"),     
+                    doc.getString("nome"),  
+                    telefone,                     
+                    doc.getString("cpf"),        
+                    endereco,                     
+                    dataSql,                     
+                    idResponsavel                 
+            ));
+        }
+
         return list;
     }
-    
-    static void remove(int id, Connection conn) throws SQLException {
-        String sqlDeleteAvaliacoes = "DELETE FROM avaliacoes WHERE id_aluno_turma IN (SELECT id_aluno_turma FROM alunos_turmas WHERE id_aluno = ?)";
-        String sqlDeleteHistoricos = "DELETE FROM historicos WHERE id_aluno_turma IN (SELECT id_aluno_turma FROM alunos_turmas WHERE id_aluno = ?)";
-        String sqlDeleteAlunosTurmas = "DELETE FROM alunos_turmas WHERE id_aluno = ?";
-        String sqlDeleteAlunosCursos = "DELETE FROM alunos_cursos WHERE id_aluno = ?";
-        String sqlDeleteAluno = "DELETE FROM alunos WHERE id_aluno = ?";
 
-        try {
-            conn.setAutoCommit(false);
+    static void update(Aluno aluno, ConexaoMongoDB conn) {
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("alunos");
 
-            try (PreparedStatement stAvaliacoes = conn.prepareStatement(sqlDeleteAvaliacoes)) {
-                stAvaliacoes.setInt(1, id);
-                stAvaliacoes.executeUpdate();
-            }
+        Bson filtro = Filters.eq("id_sql", aluno.getId());
 
-            try (PreparedStatement stHistoricos = conn.prepareStatement(sqlDeleteHistoricos)) {
-                stHistoricos.setInt(1, id);
-                stHistoricos.executeUpdate();
-            }
+        Bson operacoes = Updates.combine(
+            Updates.set("nome", aluno.getNome()),
+            Updates.set("cpf", aluno.getCpf()),
+            Updates.set("dt_nascimento", aluno.getDtNascimento()),
+            Updates.set("contato.telefone", aluno.getTelefone()),
+            Updates.set("contato.endereco", aluno.getEndereco())
+        );
 
-            try (PreparedStatement stAlunosTurmas = conn.prepareStatement(sqlDeleteAlunosTurmas)) {
-                stAlunosTurmas.setInt(1, id);
-                stAlunosTurmas.executeUpdate();
-            }
-
-            try (PreparedStatement stAlunosCursos = conn.prepareStatement(sqlDeleteAlunosCursos)) {
-                stAlunosCursos.setInt(1, id);
-                stAlunosCursos.executeUpdate();
-            }
-
-            try (PreparedStatement stAluno = conn.prepareStatement(sqlDeleteAluno)) {
-                stAluno.setInt(1, id);
-                stAluno.executeUpdate();
-            }
-
-            conn.commit(); // efetiva todas as operações
-
-        } catch (SQLException e) {
-            conn.rollback(); // desfaz tudo em caso de erro
-            throw e;
-        } finally {
-            conn.setAutoCommit(true);
-        }
-    }
-
-    static void update(Aluno aluno, Connection con) throws SQLException {
-        PreparedStatement st;
-        st = con.prepareStatement("UPDATE alunos SET nome=?, telefone=?, endereco=?, cpf=?, dt_nascimento=? WHERE id_aluno=?");
-        st.setString(1, aluno.getNome());
-        st.setString(2, aluno.getTelefone());
-        st.setString(3, aluno.getEndereco());
-        st.setString(4, aluno.getCpf());
-        st.setDate(5, aluno.getDtNascimento());
-        st.setInt(6, aluno.getId());
-        st.execute();
-        st.close();          
+        collection.updateOne(filtro, operacoes);
     }
     
-    public static void assignResponsavel(int idAluno, int idResponsavel, Connection conn) throws SQLException {
-        PreparedStatement st;
-            st = conn.prepareStatement("UPDATE alunos SET id_responsavel=? WHERE id_aluno=?");
-            st.setInt(1, idResponsavel);
-            st.setInt(2, idAluno);
-            st.execute();
-            st.close();
+    public static void remove(int id, ConexaoMongoDB conn) {
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("alunos");
+
+        collection.deleteOne(Filters.eq("id_sql", id));
+
+        System.out.println("Aluno e todos os seus dados vinculados foram removidos.");
     }
     
-    public static void unassignResponsavel(int idAluno, Connection conn) throws SQLException {
-        PreparedStatement st;
-            st = conn.prepareStatement("UPDATE alunos SET id_responsavel=NULL WHERE id_aluno=?");
-            st.setInt(1, idAluno);
-            st.execute();
-            st.close();
+    public static void assignResponsavel(int idAluno, Document dadosResponsavel, ConexaoMongoDB conn) {
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("alunos");
+
+        collection.updateOne(
+            Filters.eq("id_sql", idAluno),
+            Updates.set("responsavel", dadosResponsavel)
+        );
+
+        System.out.println("Responsavel atribuido com sucesso!");
+    }
+
+    public static void unassignResponsavel(int idAluno, ConexaoMongoDB conn) {
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("alunos");
+
+        // Para remover, definimos o campo como null
+        collection.updateOne(
+            Filters.eq("id_sql", idAluno),
+            Updates.set("responsavel", null)
+        );
+
+        System.out.println("Responsavel removido com sucesso!");
     }
 }

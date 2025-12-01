@@ -1,67 +1,51 @@
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.Iterator;
 import java.util.Scanner;
 import java.time.format.DateTimeParseException;
 
+import com.mongodb.client.MongoCollection;
+import org.bson.Document;
+
 public class AlunoController {
-    public void cadastrarAluno(Connection conexao) throws SQLException {
+    public void cadastrarAluno(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
         System.out.println("Insira os seguintes dados para cadastrar um novo aluno: ");
-        
+
         System.out.print("Nome: ");
         String nome = input.nextLine();
-        
+
         System.out.print("Telefone: ");
         String telefone = input.nextLine();
-        
+
         System.out.print("Endereco: ");
         String endereco = input.nextLine();
-        
+
         System.out.print("Cpf: ");
         String cpf = input.nextLine();
-        
-        Date dtNascimento = null;
+
+        java.sql.Date dtNascimento = null;
         while (dtNascimento == null) {
             System.out.print("Data de nascimento (AAAA-MM-DD): ");
             String dataStr = input.nextLine();
             try {
-                dtNascimento = Date.valueOf(LocalDate.parse(dataStr));
-            } catch (DateTimeParseException | IllegalArgumentException e) {
-                System.err.println("Formato de data inválido! Por favor, use AAAA-MM-DD.");
+                dtNascimento = java.sql.Date.valueOf(java.time.LocalDate.parse(dataStr));
+            } catch (java.time.format.DateTimeParseException | IllegalArgumentException e) {
+                System.err.println("Formato de data invalido! Por favor, use AAAA-MM-DD.");
             }
         }
-        
-        
-        Aluno novoAluno = new Aluno(getProximoIdAluno(conexao), nome, telefone, cpf, endereco, dtNascimento);
-        
+
+        MongoCollection<Document> collection = conexao.getDatabase().getCollection("alunos");
+        int novoId = (int) collection.countDocuments() + 1;
+
+        Aluno novoAluno = new Aluno(novoId, nome, telefone, cpf, endereco, dtNascimento);
+
         AlunoModel.create(novoAluno, conexao);
-        System.out.println("Aluno criado com sucesso!!");
-    }
-    
-    public int getProximoIdAluno(Connection conn) throws SQLException {
-        String sql = "SELECT MAX(id_aluno) FROM alunos";
-        
-        int maxId = 0;
-
-        try (PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet rs = pstmt.executeQuery()) {
-
-            if (rs.next()) {
-                maxId = rs.getInt(1);
-            }
-        }
-        
-        return maxId + 1;
     }
 
-    public void listarAlunos(Connection conexao) throws SQLException {
+    public void listarAlunos(ConexaoMongoDB conexao) {
         LinkedHashSet all = AlunoModel.listAll(conexao);
         Iterator<Aluno> it = all.iterator();
         while(it.hasNext()) {
@@ -69,16 +53,7 @@ public class AlunoController {
         }
     }
 
-    public void removerAluno(Connection conexao) throws SQLException {
-        Scanner input = new Scanner(System.in);
-        listarAlunos(conexao);
-        System.out.println("Informe o id do aluno a remover: ");
-        int n = input.nextInt();
-        AlunoModel.remove(n, conexao);  
-        System.out.println("Aluno removido com sucesso!!");
-    }
-
-    public void alterarAluno(Connection conexao) throws SQLException {
+    public void alterarAluno(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
         
         listarAlunos(conexao);
@@ -106,7 +81,7 @@ public class AlunoController {
             try {
                 dtNascimento = Date.valueOf(LocalDate.parse(dataStr));
             } catch (DateTimeParseException | IllegalArgumentException e) {
-                System.err.println("Formato de data inválido! Por favor, use AAAA-MM-DD.");
+                System.err.println("Formato de data invalido! Por favor, use AAAA-MM-DD.");
             }
         }
         
@@ -117,36 +92,61 @@ public class AlunoController {
         System.out.println("Aluno atualizado com sucesso!!");
     }
     
-    public void atribuirResponsavel(Connection conexao) throws SQLException {
+    public void removerAluno(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
-        
+
         listarAlunos(conexao);
-        
-        System.out.println("Informe o id do aluno: ");
-        int idAluno = input.nextInt();
+
+        System.out.print("\nInforme o id do aluno a remover: ");
+        int id = input.nextInt();
         input.nextLine();
-        
-        new ProfessorController().listarProfessores(conexao);
-        ProfessorModel.listAll(conexao);
-        
-        System.out.print("Informe o id do responsavel a atribuir: ");
-        int idResponsavel = input.nextInt();
-        input.nextLine();
-        
-        AlunoModel.assignResponsavel(idAluno, idResponsavel, conexao);
+
+        AlunoModel.remove(id, conexao);
+
+        System.out.println("Aluno removido com sucesso!!");
     }
     
-    public void desatribuirResponsavel(Connection conexao) throws SQLException {
+    public void atribuirResponsavel(ConexaoMongoDB conexao) {
         Scanner input = new Scanner(System.in);
-        
+
         listarAlunos(conexao);
-        
-        System.out.println("Informe o id do aluno: ");
+
+        System.out.print("\nInforme o id do aluno: ");
         int idAluno = input.nextInt();
         input.nextLine();
-        
-        new ProfessorController().listarProfessores(conexao);
-        
+
+        System.out.println("\n--- DADOS DO RESPONSAVEL ---");
+
+        System.out.print("ID (Numerico) do Responsavel: ");
+        int idResp = input.nextInt();
+        input.nextLine(); 
+
+        System.out.print("Nome do Responsavel: ");
+        String nomeResp = input.nextLine();
+
+        System.out.print("Telefone: ");
+        String telResp = input.nextLine();
+
+        System.out.print("CPF: ");
+        String cpfResp = input.nextLine();
+
+        Document docResponsavel = new Document("id_sql", idResp)
+                .append("nome", nomeResp)
+                .append("telefone", telResp)
+                .append("cpf", cpfResp);
+
+        AlunoModel.assignResponsavel(idAluno, docResponsavel, conexao);
+    }
+
+    public void desatribuirResponsavel(ConexaoMongoDB conexao) {
+        Scanner input = new Scanner(System.in);
+
+        listarAlunos(conexao);
+
+        System.out.print("\nInforme o id do aluno para remover o responsavel: ");
+        int idAluno = input.nextInt();
+        input.nextLine();
+
         AlunoModel.unassignResponsavel(idAluno, conexao);
     }
 }

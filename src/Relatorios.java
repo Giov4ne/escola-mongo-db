@@ -1,73 +1,96 @@
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Sorts;
+import com.mongodb.client.model.Accumulators;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
+import java.util.Arrays;
+import java.util.List;
+import org.bson.Document;
 
 public class Relatorios {
 
     
-    public void mediaNotasPorAlunoDisciplina(Connection conexao) throws SQLException {
-        String sql = "SELECT a.nome AS aluno, d.nome AS disciplina, AVG(av.nota) AS media " +
-                     "FROM avaliacoes av " +
-                     "INNER JOIN alunos_turmas at ON av.id_aluno_turma = at.id_aluno_turma " +
-                     "INNER JOIN alunos a ON at.id_aluno = a.id_aluno " +
-                     "INNER JOIN turmas t ON at.id_turma = t.id_turma " +
-                     "INNER JOIN disciplinas d ON t.id_disciplina = d.id_disciplina " +
-                     "GROUP BY a.nome, d.nome " +
-                     "ORDER BY a.nome, d.nome";
+    public void boletimAlunos(ConexaoMongoDB conexao) {
+        MongoCollection<Document> colAlunos = conexao.getDatabase().getCollection("alunos");
 
-        System.out.println("\n--- Media de Notas por Aluno em cada Disciplina ---");
-        try (Statement st = conexao.createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
+        System.out.println("\n--- BOLETIM ESCOLAR (MEDIAS) ---");
 
-            while (rs.next()) {
-                System.out.printf("Aluno: %s, Disciplina: %s, Media: %.2f\n",
-                        rs.getString("aluno"),
-                        rs.getString("disciplina"),
-                        rs.getDouble("media"));
+        for (Document aluno : colAlunos.find()) {
+            String nome = aluno.getString("nome");
+            List<Document> historico = aluno.getList("historico_academico", Document.class);
+
+            if (historico != null && !historico.isEmpty()) {
+                System.out.println("> Aluno: " + nome);
+                
+                for (Document materia : historico) {
+                    String disc = materia.getString("disciplina");
+                    List<Document> avaliacoes = materia.getList("avaliacoes", Document.class);
+                    
+                    double soma = 0;
+                    int qtd = 0;
+                    
+                    if (avaliacoes != null) {
+                        for (Document prova : avaliacoes) {
+                            Number nota = prova.get("nota", Number.class);
+                            soma += nota.doubleValue();
+                            qtd++;
+                        }
+                    }
+                    
+                    double media = (qtd > 0) ? (soma / qtd) : 0.0;
+                    String status = (media >= 7.0) ? "APROVADO" : "EM RECUPERACAO";
+                    
+                    System.out.printf("   - %s: Media %.1f [%s]\n", disc, media, status);
+                }
             }
         }
     }
 
-    public void disciplinasPorCurso(Connection conexao) throws SQLException {
-        String sql = "SELECT c.nome AS curso, d.nome AS disciplina, cd.obrigatoriedade_disciplina AS obrigatoria, cd.carga_horaria_disciplina AS carga_horaria " +
-                     "FROM cursos_disciplinas cd " +
-                     "INNER JOIN cursos c ON cd.id_curso = c.id_curso " +
-                     "INNER JOIN disciplinas d ON cd.id_disciplina = d.id_disciplina " +
-                     "ORDER BY c.nome, d.nome";
-        
+    public void disciplinasPorCurso(ConexaoMongoDB conexao) {
+        MongoCollection<Document> collection = conexao.getDatabase().getCollection("cursos");
+
         System.out.println("\n--- Disciplinas por Curso ---");
-        try (Statement st = conexao.createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
 
-            while (rs.next()) {
-                String obrigatoriedade = rs.getBoolean("obrigatoria") ? "Sim" : "Nao";
-                System.out.printf("Curso: %s, Disciplina: %s, Obrigatoria: %s, Duracao (h): %d\n",
-                        rs.getString("curso"),
-                        rs.getString("disciplina"),
-                        obrigatoriedade,
-                        rs.getInt("carga_horaria"));
+        for (Document cursoDoc : collection.find().sort(Sorts.ascending("nome"))) {
+
+            String nomeCurso = cursoDoc.getString("nome");
+
+            List<Document> grade = cursoDoc.getList("grade", Document.class);
+
+            if (grade != null && !grade.isEmpty()) {
+                for (Document disc : grade) {
+
+                    String nomeDisciplina = disc.getString("nome");
+                    int cargaHoraria = disc.getInteger("carga_hr", 0);
+                    boolean obrigatorio = disc.getBoolean("obrigatorio", false);
+
+                    String textoObrigatoria = obrigatorio ? "Sim" : "Nao";
+
+                    System.out.printf("Curso: %s, Disciplina: %s, Obrigatoria: %s, Duracao (h): %d\n",
+                            nomeCurso,
+                            nomeDisciplina,
+                            textoObrigatoria,
+                            cargaHoraria);
+                }
             }
         }
     }
 
-    public void quantidadeAlunosPorCurso(Connection conexao) throws SQLException {
-        String sql = "SELECT c.nome AS curso, COUNT(ac.id_aluno) AS quantidade_alunos " +
-                     "FROM alunos_cursos ac " +
-                     "INNER JOIN cursos c ON ac.id_curso = c.id_curso " +
-                     "GROUP BY c.nome " +
-                     "ORDER BY c.nome";
-        
-        System.out.println("\n--- Quantidade de Alunos por Curso ---");
-        try (Statement st = conexao.createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
+    public void quantidadeAlunosPorCurso(ConexaoMongoDB conexao) {
+        MongoCollection<Document> colAlunos = conexao.getDatabase().getCollection("alunos");
 
-            while (rs.next()) {
-                System.out.printf("Curso: %s, Quantidade de Alunos: %d\n",
-                        rs.getString("curso"),
-                        rs.getInt("quantidade_alunos"));
-            }
+        System.out.println("\n--- QUANTIDADE DE ALUNOS POR CURSO ---");
+
+        var pipeline = Arrays.asList(
+            Aggregates.match(Filters.exists("matricula", true)),
+            Aggregates.group("$matricula.nome_curso", Accumulators.sum("total", 1))
+        );
+
+        for (Document doc : colAlunos.aggregate(pipeline)) {
+            String curso = doc.getString("_id");
+            int total = doc.getInteger("total");
+            System.out.println("Curso: " + curso + " | Total de Alunos: " + total);
         }
     }
 }

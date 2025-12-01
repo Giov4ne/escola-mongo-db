@@ -1,83 +1,83 @@
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.LinkedHashSet;
-
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
+import org.bson.Document;
+import org.bson.conversions.Bson;
 
 public class ProfessorModel {
-    public static void create(Professor professor, Connection conn) throws SQLException {
-        PreparedStatement st;
-            st = conn.prepareStatement("INSERT INTO professores (id_professor, nome, telefone, endereco, cpf, especialidade) VALUES (?,?,?,?,?,?)");
-            st.setInt(1, professor.getId());
-            st.setString(2, professor.getNome());
-            st.setString(3, professor.getTelefone());
-            st.setString(4, professor.getEndereco());
-            st.setString(5, professor.getCpf());
-            st.setString(6, professor.getEspecialidade());
-            st.execute();
-            st.close();  
+public static void create(Professor professor, ConexaoMongoDB conn) {
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("professores");
+
+        Document contato = new Document("telefone", professor.getTelefone())
+                .append("endereco", professor.getEndereco());
+
+        Document docProfessor = new Document("id_sql", professor.getId())
+                .append("nome", professor.getNome())
+                .append("cpf", professor.getCpf())
+                .append("especialidade", professor.getEspecialidade())
+                .append("contato", contato);
+
+        collection.insertOne(docProfessor);
     }
     
-    static LinkedHashSet listAll(Connection conn) throws SQLException {
-        Statement st;
-        LinkedHashSet list = new LinkedHashSet();
-            st = conn.createStatement();
-            String sql = "SELECT id_professor, nome, telefone, endereco, cpf, especialidade FROM professores ORDER BY id_professor";
+    static LinkedHashSet<Professor> listAll(ConexaoMongoDB conn) {
+        LinkedHashSet<Professor> list = new LinkedHashSet<>();
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("professores");
+
+        for (Document doc : collection.find()) {
             
-            ResultSet result = st.executeQuery(sql);
+            Document contato = (Document) doc.get("contato");
+            String telefone = "";
+            String endereco = "";
             
-            while(result.next()) {
-                list.add(new Professor(
-                    result.getInt(1),
-                    result.getString(2),
-                    result.getString(3),
-                    result.getString(4),
-                    result.getString(5),
-                    result.getString(6)
-                ));
+            if (contato != null) {
+                telefone = contato.getString("telefone");
+                endereco = contato.getString("endereco");
+            } else {
+                telefone = doc.getString("telefone");
+                endereco = doc.getString("endereco");
             }
+
+            list.add(new Professor(
+                doc.getInteger("id_sql"),
+                doc.getString("nome"),
+                telefone,
+                doc.getString("cpf"),
+                endereco,
+                doc.getString("especialidade")
+            ));
+        }
         return list;
     }
     
-    public static void remove(int id, Connection conn) throws SQLException {
-        String sqlDeleteTurmas = "DELETE FROM turmas WHERE id_professor = ?";
-        String sqlDeleteProfessor = "DELETE FROM professores WHERE id_professor = ?";
+    public static void remove(int idProfessor, ConexaoMongoDB conn) {
+        MongoCollection<Document> colProfessores = conn.getDatabase().getCollection("professores");
+        MongoCollection<Document> colTurmas = conn.getDatabase().getCollection("turmas");
 
-        try {
-            conn.setAutoCommit(false);
+        colTurmas.updateMany(
+            Filters.eq("id_professor_sql", idProfessor), 
+            Updates.set("id_professor_sql", null) 
+        );
 
-            try (PreparedStatement stTurmas = conn.prepareStatement(sqlDeleteTurmas)) {
-                stTurmas.setInt(1, id);
-                stTurmas.executeUpdate();
-            }
-
-            try (PreparedStatement stProfessor = conn.prepareStatement(sqlDeleteProfessor)) {
-                stProfessor.setInt(1, id);
-                stProfessor.executeUpdate();
-            }
-
-            conn.commit();
-        } catch (SQLException e) {
-            conn.rollback();
-            throw e;
-        } finally {
-            conn.setAutoCommit(true);
-        }
+        colProfessores.deleteOne(Filters.eq("id_sql", idProfessor));
     }
     
-    static void update(Professor professor, Connection con) throws SQLException {
-        PreparedStatement st;
-        st = con.prepareStatement("UPDATE professores SET nome=?, telefone=?, endereco=?, cpf=?, especialidade=? WHERE id_professor=?");
-        st.setString(1, professor.getNome());
-        st.setString(2, professor.getTelefone());
-        st.setString(3, professor.getEndereco());
-        st.setString(4, professor.getCpf());
-        st.setString(5, professor.getEspecialidade());
-        st.setInt(6, professor.getId());
-        st.execute();
-        st.close();          
+    static void update(Professor professor, ConexaoMongoDB conn) {
+        MongoCollection<Document> collection = conn.getDatabase().getCollection("professores");
+
+        Bson filtro = Filters.eq("id_sql", professor.getId());
+
+        Bson operacoes = Updates.combine(
+            Updates.set("nome", professor.getNome()),
+            Updates.set("cpf", professor.getCpf()),
+            Updates.set("especialidade", professor.getEspecialidade()),
+
+            Updates.set("contato.telefone", professor.getTelefone()),
+            Updates.set("contato.endereco", professor.getEndereco())
+        );
+
+        collection.updateOne(filtro, operacoes);
     }
 }

@@ -1,0 +1,244 @@
+
+use escola_db;
+
+
+db.professores.drop();
+db.cursos.drop();
+db.turmas.drop();
+db.alunos.drop();
+
+
+db.professores.insertMany([
+  { 
+    "id_sql": 1, 
+    "nome": "Carlos Andrade", 
+    "telefone": "47911223344", 
+    "endereco": "Rua das Flores, 123", 
+    "cpf": "12345678901", 
+    "especialidade": "Matemática" 
+  },
+  { 
+    "id_sql": 2, 
+    "nome": "Ana Souza", 
+    "telefone": "47955667788", 
+    "endereco": "Avenida Principal, 456", 
+    "cpf": "23456789012", 
+    "especialidade": "Desenvolvimento de Sistemas" 
+  },
+  { 
+    "id_sql": 3, 
+    "nome": "Beatriz Costa", 
+    "telefone": "47988776655", 
+    "endereco": "Rua da Lapa, 789", 
+    "cpf": "34567890123", 
+    "especialidade": "Administração" 
+  }
+]);
+
+
+db.cursos.insertMany([
+  {
+    "id_sql": 1,
+    "nome": "Ensino Médio",
+    "tipo": "Regular",
+    "turno": "Matutino",
+    "grade_curricular": [
+      { 
+        "id_disciplina_sql": 1, 
+        "nome": "Matemática", 
+        "ementa": "Estudo de funções, geometria e estatística.", 
+        "carga_horaria": 90, 
+        "obrigatorio": true 
+      },
+      { 
+        "id_disciplina_sql": 2, 
+        "nome": "Língua Portuguesa", 
+        "ementa": "Estudo da gramática, literatura e redação.", 
+        "carga_horaria": 90, 
+        "obrigatorio": true 
+      }
+    ]
+  },
+  {
+    "id_sql": 2,
+    "nome": "Técnico em Informática",
+    "tipo": "Técnico",
+    "turno": "Noturno",
+    "grade_curricular": [
+      { 
+        "id_disciplina_sql": 3, 
+        "nome": "Programação Orientada a Objetos", 
+        "ementa": "Introdução aos conceitos de classes, objetos e herança.", 
+        "carga_horaria": 120, 
+        "obrigatorio": true 
+      }
+    ]
+  },
+  {
+    "id_sql": 3,
+    "nome": "Graduação em Administração",
+    "tipo": "Superior",
+    "turno": "Noturno",
+    "grade_curricular": [
+      { 
+        "id_disciplina_sql": 4, 
+        "nome": "Gestão de Projetos", 
+        "ementa": "Planejamento, execução e controle de projetos corporativos.", 
+        "carga_horaria": 80, 
+        "obrigatorio": true 
+      }
+    ]
+  }
+]);
+
+
+db.turmas.insertMany([
+  { "id_sql": 1, "codigo": "EM1-MAT", "sala": "A101", "id_professor_sql": 1, "disciplina": "Matemática" },
+  { "id_sql": 2, "codigo": "TEC-POO", "sala": "B203", "id_professor_sql": 2, "disciplina": "Programação OO" },
+  { "id_sql": 3, "codigo": "ADM-GP",  "sala": "C305", "id_professor_sql": 3, "disciplina": "Gestão de Projetos" }
+]);
+
+
+db.alunos.insertMany([
+  {
+    "id_sql": 1,
+    "nome": "Fernando Henrique",
+    "cpf": "10120230344",
+    "dt_nascimento": ISODate("2008-05-10T00:00:00Z"),
+    "contato": { "telefone": "47910102020", "endereco": "Rua dos Girassóis, 10" },
+    "responsavel": { 
+      "id_sql": 1, 
+      "nome": "Marcos Oliveira", 
+      "telefone": "47912345678", 
+      "cpf": "11122233344" 
+    },
+    "matricula": {
+      "numero": "20250001",
+      "id_curso_sql": 1,
+      "nome_curso": "Ensino Médio", 
+      "periodo": "2° ano",
+      "dt_matricula": ISODate("2024-01-15T00:00:00Z")
+    },
+    "historico_academico": [
+      {
+        "id_turma_sql": 1,
+        "disciplina": "Matemática",
+        "dt_inscricao": ISODate("2025-02-01T00:00:00Z"),
+        "faltas": 4,
+        "situacao": "Cursando",
+        "avaliacoes": [
+           { 
+             "id_avaliacao_sql": 1, 
+             "descricao": "Prova 1", 
+             "data": ISODate("2025-04-10T00:00:00Z"), 
+             "nota": 8.5 
+           }
+        ]
+      }
+    ]
+  },
+  {
+    "id_sql": 2,
+    "nome": "Larissa Manoela",
+    "cpf": "50560670788",
+    "dt_nascimento": ISODate("2007-11-22T00:00:00Z"),
+    "contato": { "telefone": "47930304040", "endereco": "Avenida Brasil, 200" },
+    "responsavel": { 
+      "id_sql": 2, 
+      "nome": "Julia Pereira", 
+      "telefone": "47987654321", 
+      "cpf": "55566677788" 
+    },
+    "matricula": {
+      "numero": "20250002",
+      "id_curso_sql": 1,
+      "nome_curso": "Ensino Médio",
+      "periodo": "3° ano",
+      "dt_matricula": ISODate("2023-01-20T00:00:00Z")
+    },
+    "historico_academico": [
+      {
+        "id_turma_sql": 1,
+        "disciplina": "Matemática",
+        "dt_inscricao": ISODate("2025-02-01T00:00:00Z"),
+        "faltas": 2,
+        "situacao": "Cursando",
+        "avaliacoes": [
+           { 
+             "id_avaliacao_sql": 2, 
+             "descricao": "Prova 1", 
+             "data": ISODate("2025-04-10T00:00:00Z"), 
+             "nota": 9.0 
+           }
+        ]
+      }
+    ]
+  },
+  {
+    "id_sql": 3,
+    "nome": "Lucas Martins",
+    "cpf": "90980870766",
+    "dt_nascimento": ISODate("2002-02-15T00:00:00Z"),
+    "contato": { "telefone": "47950506060", "endereco": "Rua do Bosque, 30" },
+    "responsavel": null,
+    "matricula": {
+      "numero": "20250003",
+      "id_curso_sql": 2,
+      "nome_curso": "Técnico em Informática",
+      "periodo": "Módulo 3",
+      "dt_matricula": ISODate("2024-07-25T00:00:00Z")
+    },
+    "historico_academico": [
+      {
+        "id_turma_sql": 2,
+        "disciplina": "Programação Orientada a Objetos",
+        "dt_inscricao": ISODate("2025-08-01T00:00:00Z"),
+        "faltas": 1,
+        "situacao": "Aprovado",
+        "avaliacoes": [
+           { 
+             "id_avaliacao_sql": 3, 
+             "descricao": "Trabalho Final", 
+             "data": ISODate("2025-06-20T00:00:00Z"), 
+             "nota": 7.5 
+           }
+        ]
+      }
+    ]
+  },
+  {
+    "id_sql": 4,
+    "nome": "Mariana Ferreira",
+    "cpf": "40430320211",
+    "dt_nascimento": ISODate("2001-09-30T00:00:00Z"),
+    "contato": { "telefone": "47970708080", "endereco": "Avenida das Nações, 450" },
+    "responsavel": null,
+    "matricula": {
+      "numero": "20250004",
+      "id_curso_sql": 3,
+      "nome_curso": "Graduação em Administração",
+      "periodo": "5° semestre",
+      "dt_matricula": ISODate("2023-07-18T00:00:00Z")
+    },
+    "historico_academico": [
+      {
+        "id_turma_sql": 3,
+        "disciplina": "Gestão de Projetos",
+        "dt_inscricao": ISODate("2025-08-01T00:00:00Z"),
+        "faltas": 5,
+        "situacao": "Reprovado",
+        "avaliacoes": [
+           { 
+             "id_avaliacao_sql": 4, 
+             "descricao": "Prova Final", 
+             "data": ISODate("2025-11-30T00:00:00Z"), 
+             "nota": 4.0 
+           }
+        ]
+      }
+    ]
+  }
+]);
+
+
+//mongosh < backup_escola.js

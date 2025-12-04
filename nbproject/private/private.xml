@@ -4,6 +4,10 @@
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
             <file>file:/C:/Users/giova/Documents/NetBeansProjects/escola-mongo-db/src/Principal.java</file>
+            <file>file:/C:/Users/giova/Documents/NetBeansProjects/escola-mongo-db/src/Aluno.java</file>
+            <file>file:/C:/Users/giova/Documents/NetBeansProjects/escola-mongo-db/src/AlunoController.java</file>
+            <file>file:/C:/Users/giova/Documents/NetBeansProjects/escola-mongo-db/src/AlunoModel.java</file>
+            <file>file:/C:/Users/giova/Documents/NetBeansProjects/escola-mongo-db/src/ConexaoMongoDB.java</file>
         </group>
     </open-files>
 </project-private>

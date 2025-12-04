@@ -214,6 +214,6 @@ public class Principal {
                     System.out.println("Opcao invalida!");
                     break;
             }
-        } while (opSubmenu != 4);
+        } while (opSubmenu != 5);
     }
 }
